@@ -10,7 +10,7 @@ type tree struct {
 	branchId string
 }
 
-func findInTree(tree *tree, searchValue int) <-chan string {
+func findValueInTree(tree *tree, searchValue int) chan string {
 	out := make(chan string)
 
 	if tree == nil {
@@ -28,7 +28,7 @@ func findInTree(tree *tree, searchValue int) <-chan string {
 	}()
 
 	go func() {
-		defer close(out)
+		// defer close(out)
 		wg.Wait()
 	}()
 
@@ -42,16 +42,15 @@ func searchWorker(treeBranch *tree, wg *sync.WaitGroup, out chan <- string, sear
 	}
 
 	if treeBranch.value == searchValue {
+		fmt.Println("found in ", treeBranch.branchId)
 		out <- treeBranch.branchId
 	}
 
 	wg.Add(1)
 
 	go func() {
-		wg.Add(1)
+		wg.Add(2)
 		go searchWorker(treeBranch.left, wg, out, searchValue)
-
-		wg.Add(1)
 		go searchWorker(treeBranch.right, wg, out, searchValue)
 
 		wg.Done()
@@ -60,13 +59,16 @@ func searchWorker(treeBranch *tree, wg *sync.WaitGroup, out chan <- string, sear
 	wg.Done()
 }
 
-func store(in <-chan string) <-chan struct{} {
+func readChannel(in chan string, closeOnFirstFinding bool) <-chan struct{} {
 	done := make(chan struct{})
 
 	go func() {
 		defer close(done)
 		for data := range in {
 			fmt.Println(data)
+			if closeOnFirstFinding {
+				close(in)
+			}
 		}
 	}()
 
@@ -110,7 +112,7 @@ func main() {
 		&tree {
 			8,
 			&tree {
-				8,
+				101,
 				nil,
 				nil,
 				"CA",
@@ -141,8 +143,10 @@ func main() {
 		"Top",
 	}
 
-	in := findInTree(&tree, 101)
+	closeOnFirstFinding :=  true
 
-	<-store(in)
+	in := findValueInTree(&tree, 101)
+
+	<-readChannel(in, closeOnFirstFinding)
 }
 
