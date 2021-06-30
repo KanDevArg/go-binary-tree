@@ -18,17 +18,13 @@ func findValueInTree(tree *tree, searchValue int) chan string {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-
 	go func() {
 		wg.Add(1)
 		go searchWorker(tree, &wg, out, searchValue)
-
-		wg.Done()
 	}()
 
 	go func() {
-		// defer close(out)
+		defer close(out)
 		wg.Wait()
 	}()
 
@@ -46,8 +42,6 @@ func searchWorker(treeBranch *tree, wg *sync.WaitGroup, out chan <- string, sear
 		out <- treeBranch.branchId
 	}
 
-	wg.Add(1)
-
 	go func() {
 		wg.Add(2)
 		go searchWorker(treeBranch.left, wg, out, searchValue)
@@ -55,11 +49,9 @@ func searchWorker(treeBranch *tree, wg *sync.WaitGroup, out chan <- string, sear
 
 		wg.Done()
 	}()
-
-	wg.Done()
 }
 
-func readChannel(in chan string, closeOnFirstFinding bool) <-chan struct{} {
+func readFindings(in chan string, closeOnFirstFinding bool) <-chan struct{} {
 	done := make(chan struct{})
 
 	go func() {
@@ -147,6 +139,6 @@ func main() {
 
 	in := findValueInTree(&tree, 101)
 
-	<-readChannel(in, closeOnFirstFinding)
+	<-readFindings(in, closeOnFirstFinding)
 }
 
