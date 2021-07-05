@@ -20,7 +20,7 @@ func findValueInTree(tree *tree, searchValue int) chan string {
 	var wg sync.WaitGroup
 	go func() {
 		wg.Add(1)
-		go searchWorker(tree, &wg, out, searchValue)
+		go worker(tree, &wg, out, searchValue)
 	}()
 
 	go func() {
@@ -31,7 +31,7 @@ func findValueInTree(tree *tree, searchValue int) chan string {
 	return out
 }
 
-func searchWorker(treeBranch *tree, wg *sync.WaitGroup, out chan <- string, searchValue int)  {
+func worker(treeBranch *tree, wg *sync.WaitGroup, out chan <- string, searchValue int)  {
 	if treeBranch == nil {
 		wg.Done()
 		return
@@ -44,8 +44,8 @@ func searchWorker(treeBranch *tree, wg *sync.WaitGroup, out chan <- string, sear
 
 	go func() {
 		wg.Add(2)
-		go searchWorker(treeBranch.left, wg, out, searchValue)
-		go searchWorker(treeBranch.right, wg, out, searchValue)
+		go worker(treeBranch.left, wg, out, searchValue)
+		go worker(treeBranch.right, wg, out, searchValue)
 
 		wg.Done()
 	}()
@@ -135,7 +135,7 @@ func main() {
 		"Top",
 	}
 
-	closeOnFirstFinding :=  true
+	var closeOnFirstFinding bool
 
 	in := findValueInTree(&tree, 101)
 
