@@ -1,144 +1,76 @@
 package main
 
-import "fmt"
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
-type tree struct {
+type node struct {
 	value int
-	left *tree
-	right *tree
-	branchId string
+	right *node
+	left  *node
 }
 
-func findValueInTree(tree *tree, searchValue int) chan string {
-	out := make(chan string)
+func findValue(joint *node, value int, ch chan<- int, ca chan bool, wg *sync.WaitGroup) {
+	defer wg.Done()
 
-	if tree == nil {
-		return out
-	}
+	abort:=<-ca
 
-	var wg sync.WaitGroup
-	go func() {
-		wg.Add(1)
-		go worker(tree, &wg, out, searchValue)
-	}()
-
-	go func() {
-		defer close(out)
-		wg.Wait()
-	}()
-
-	return out
-}
-
-func worker(treeBranch *tree, wg *sync.WaitGroup, out chan <- string, searchValue int)  {
-	if treeBranch == nil {
-		wg.Done()
+	if abort {
+		fmt.Println("Should abort!!")
 		return
 	}
 
-	if treeBranch.value == searchValue {
-		fmt.Println("found in ", treeBranch.branchId)
-		out <- treeBranch.branchId
+	found := false
+
+	if (*joint).value == value {
+		ch <- value
+		found = false
 	}
 
-	go func() {
-		wg.Add(2)
-		go worker(treeBranch.left, wg, out, searchValue)
-		go worker(treeBranch.right, wg, out, searchValue)
 
-		wg.Done()
-	}()
-}
 
-func readFindings(in chan string, closeOnFirstFinding bool) <-chan struct{} {
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-		for data := range in {
-			fmt.Println(data)
-			if closeOnFirstFinding {
-				close(in)
-			}
+	if (*joint).left == nil && (*joint).right == nil {
+			return
+	} else {
+		if (*joint).right != nil {
+			wg.Add(1)
+			go func() {
+				ca <- found
+			}()
+			go findValue((*joint).right, value, ch, ca, wg)
 		}
+
+		if (*joint).left != nil {
+			wg.Add(1)
+			go func() {
+				ca <- found
+			}()
+			go findValue((*joint).left, value, ch, ca, wg)
+		}
+	}
+}
+
+func main(){
+	tree1 := &node{value: 10, right: &node{value: 11, right: nil, left: nil}, left: &node{value: 11, right: nil, left: &node{ value:10, right: nil, left: &node{value: 11, right: &node{value: 11, right: &node{value: 10, right: &node{value: 11, right: nil, left: nil}, left: &node{value: 11, right: nil, left: &node{ value:10, right: nil, left: nil}}}, left: &node{value: 10, right: &node{value: 11, right: nil, left: nil}, left: &node{value: 11, right: nil, left: &node{ value:10, right: nil, left: &node{value: 11, right: &node{value: 11, right: &node{value: 10, right: &node{value: 11, right: nil, left: nil}, left: &node{value: 11, right: nil, left: &node{ value:10, right: nil, left: nil}}}, left: nil}, left: &node{value: 11, right: nil, left: &node{ value:10, right: nil, left: nil}}}}}}}, left: &node{value: 11, right: nil, left: &node{ value:10, right: nil, left: nil}}}}}}
+	ch := make(chan int)
+	ca := make(chan bool)
+	var wg sync.WaitGroup
+
+	go func () {
+		ca<-false
 	}()
 
-	return done
-}
+	wg.Add(1)
+	go findValue(tree1,11, ch, ca, &wg )
 
-func main() {
-	tree := tree {
-		8,
-		&tree {
-			8,
-			&tree {
-				8,
-				nil,
-				nil,
-				"BA",
-			},
-			&tree {
-				8,
-				&tree {
-					8,
-					&tree {
-						101,
-						nil,
-						nil,
-						"BBAA",
-					},
-					&tree {
-						8,
-						nil,
-						nil,
-						"BBAB",
-					},
-					"BBA",
-				},
-				nil,
-				"BB",
-			},
-			"B",
-		},
-		&tree {
-			8,
-			&tree {
-				101,
-				nil,
-				nil,
-				"CA",
-			},
-			&tree {
-				8,
-				&tree {
-					101,
-					nil,
-					nil,
-					"in88",
-				},
-				&tree {
-					81,
-					&tree {
-						101,
-						nil,
-						nil,
-						"CB 101",
-					},
-					nil,
-					"in77",
-				},
-				"CB",
-			},
-			"C",
-		},
-		"Top",
+	go func () {
+		defer close(ch)
+		defer close(ca)
+		defer wg.Wait()
+	}()
+
+	for v := range ch {
+		fmt.Println("value", v)
 	}
-
-	var closeOnFirstFinding bool
-
-	in := findValueInTree(&tree, 101)
-
-	<-readFindings(in, closeOnFirstFinding)
 }
-
